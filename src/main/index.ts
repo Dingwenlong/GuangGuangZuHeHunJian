@@ -12,6 +12,11 @@ import { hotUpdateIpcHandlers } from './services/check-update';
 import { hotUpdaterIpcHandlers } from './services/hot-updater';
 import { ipcCustomGlobalHandlers } from '@main/services/ipc-custom-handle';
 
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+}
+
 function onAppReady() {
   const { disableF12 } = useDisableButton();
   const { renderProcessGone } = useProcessException();

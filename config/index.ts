@@ -14,9 +14,6 @@ export default {
   IsUseSysTitle: false,
   IgnoreLogin: false,
   workBenchDefault: {
-    s1: {
-      taskDirectory: '\\\\192.168.31.99\\影视存储\\逛逛客户端\\监控目录',
-      autoMonitoring: true,
-    },
+    taskDirectory: '\\\\192.168.31.99\\影视存储\\拍摄混剪\\素颜霜示例',
   },
 };

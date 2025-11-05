@@ -1,9 +1,9 @@
 {
-  "name": "mei-ke-guang-guang-zi-dong-hua",
+  "name": "mei-ke-guang-guang-zu-he-hun-jian",
   "version": "0.0.1",
   "main": "./dist/electron/main/main.js",
   "author": "Pincheng Technology",
-  "description": "guang-guang-zi-dong-hua project",
+  "description": "guang-guang-zu-he-hun-jian project",
   "license": "UNLICENSED",
   "scripts": {
     "dev": "tsx .electron-vite/dev-runner.ts",

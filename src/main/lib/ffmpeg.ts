@@ -111,215 +111,6 @@ export class FFmpegUtil extends EventEmitter {
   }
 
   /**
-   * 检查视频是否包含音频流
-   */
-  public hasAudioStream(videoPath: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      const normalizedPath = this.normalizeWindowsPath(path.resolve(videoPath));
-      const args = [
-        '-v',
-        'error',
-        '-select_streams',
-        'a',
-        '-show_entries',
-        'stream=codec_type',
-        '-of',
-        'csv=p=0',
-        normalizedPath,
-      ];
-
-      this.emit('log', {
-        message: `[FFprobe命令] 检查视频是否包含音频流 ${this.ffprobePath}`,
-        type: 'debug',
-      });
-
-      const result = spawnSync(this.ffprobePath, args, {
-        encoding: 'utf8',
-        windowsHide: true,
-      });
-
-      if (result.error || result.status !== 0) {
-        resolve(false);
-        return;
-      }
-
-      const hasAudio = (result.stdout || '').trim().includes('audio');
-      resolve(hasAudio);
-    });
-  }
-
-  /**
-   * 检测指定时间范围内是否有场景变化
-   */
-  public detectSceneChange(
-    videoPath: string,
-    startTime: number,
-    checkDuration: number,
-    threshold: number
-  ): Promise<boolean> {
-    return new Promise<boolean>((resolve, reject) => {
-      const normalizedPath = this.normalizeWindowsPath(path.resolve(videoPath));
-
-      // 构建滤镜：选择在指定时间范围内且场景变化超过阈值的帧
-      const videoFilter = `select='between(t,${startTime},${
-        startTime + checkDuration
-      })*gt(scene,${threshold})',showinfo`;
-
-      const args = [
-        '-hide_banner',
-        '-i',
-        normalizedPath,
-        '-vf',
-        videoFilter,
-        '-an', // 禁用音频处理
-        '-f',
-        'null',
-        '-', // 输出到空
-      ];
-
-      this.emit('log', {
-        message: `[FFmpeg命令] 检测指定时间范围内是否有场景变化 ${this.ffmpegPath}`,
-        type: 'debug',
-      });
-
-      const ffmpegProcess = spawn(this.ffmpegPath, args, { windowsHide: true });
-
-      let stderrOutput = '';
-      ffmpegProcess.stderr.on('data', chunk => {
-        stderrOutput += chunk.toString();
-      });
-
-      ffmpegProcess.on('error', error => {
-        console.error(`[FFmpeg错误] 场景检测进程错误: ${error.message}`);
-        reject(new Error(`场景检测进程错误: ${error.message}`));
-      });
-
-      ffmpegProcess.on('close', code => {
-        // 在stderr输出中查找场景变化信息
-        // showinfo滤镜会输出匹配的帧信息，包含"pts_time:"字段
-        const sceneChangeDetected = /pts_time:([0-9.]+)/.test(stderrOutput);
-        console.log(
-          `[场景检测] 结果: ${
-            sceneChangeDetected ? '检测到场景变化' : '未检测到场景变化'
-          }`
-        );
-        resolve(sceneChangeDetected);
-      });
-    });
-  }
-
-  /**
-   * 提取视频片段
-   */
-  public extractSegment(
-    videoPath: string,
-    startTime: number,
-    duration: number,
-    outputPath: string,
-    hasAudio: boolean,
-    reencode: boolean
-  ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      // 确保输出目录存在
-      const outputDir = path.dirname(outputPath);
-      try {
-        fs.mkdirSync(outputDir, { recursive: true });
-      } catch (error) {
-        // 目录已存在或其他错误，继续执行
-      }
-
-      const normalizedInput = this.normalizeWindowsPath(
-        path.resolve(videoPath)
-      );
-      const normalizedOutput = this.normalizeWindowsPath(
-        path.resolve(outputPath)
-      );
-
-      // 基本参数：输入定位和时长
-      const args: string[] = [
-        '-y', // 覆盖输出文件
-        '-hide_banner',
-        '-ss',
-        startTime.toString(), // 输入定位（放在-i前以提高精度）
-        '-i',
-        normalizedInput,
-        '-t',
-        duration.toString(), // 片段时长
-        '-avoid_negative_ts',
-        'make_zero',
-        '-fflags',
-        '+genpts',
-      ];
-
-      if (reencode) {
-        // 重新编码确保时长准确
-        args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
-
-        if (hasAudio) {
-          // 视频有音频时编码音频
-          args.push('-c:a', 'aac', '-b:a', '128k');
-        } else {
-          // 视频无音频时禁用音频
-          args.push('-an');
-        }
-      } else {
-        // 流复制（快速但不保证时长准确）
-        args.push('-c', 'copy');
-      }
-
-      args.push(normalizedOutput);
-
-      this.emit('log', {
-        message: `[FFmpeg命令] 提取视频片段 ${this.ffmpegPath}`,
-        type: 'debug',
-      });
-
-      const ffmpegProcess = spawn(this.ffmpegPath, args, { windowsHide: true });
-
-      let stderrOutput = '';
-      ffmpegProcess.stderr.on('data', chunk => {
-        stderrOutput += chunk.toString();
-      });
-
-      ffmpegProcess.on('error', error => {
-        console.error(`[FFmpeg错误] 片段提取进程错误: ${error.message}`);
-        reject(new Error(`片段提取进程错误: ${error.message}`));
-      });
-
-      ffmpegProcess.on('close', code => {
-        if (code === 0) {
-          this.emit('log', {
-            message: `[片段提取] 成功提取片段: ${outputPath}`,
-            type: 'debug',
-          });
-          resolve();
-        } else {
-          const errorMessage = [
-            `FFmpeg处理失败，退出码: ${code}`,
-            `输入文件: ${videoPath}`,
-            `开始时间: ${startTime}`,
-            `持续时间: ${duration}`,
-            `输出文件: ${outputPath}`,
-            'FFmpeg错误输出:',
-            stderrOutput,
-          ].join('\n');
-          console.error(`[FFmpeg错误] ${errorMessage}`);
-          reject(new Error(errorMessage));
-        }
-      });
-    });
-  }
-
-  /**
-   * 验证生成片段的时长
-   */
-  public verifySegmentDuration(segmentPath: string): Promise<number> {
-    return this.getVideoDuration(segmentPath).catch(error => {
-      return 0;
-    });
-  }
-
-  /**
    * 调整视频速度
    */
   public adjustSpeed(
@@ -334,7 +125,6 @@ export class FFmpegUtil extends EventEmitter {
           `-vf setpts=${1 / speed}*PTS`,
           `-af atempo=${speed > 2 ? 2 : speed}`,
           ...(speed > 2 ? ['-af', `atempo=${speed / 2}`] : []),
-          '-t 20',
           '-c:v libx264', // 视频编码器
           '-preset fast', // 编码速度
           '-crf 23', // 质量参数
@@ -353,17 +143,18 @@ export class FFmpegUtil extends EventEmitter {
   }
 
   /**
-   * 截取视频前20秒
+   * 截取视频前N秒
    */
   public trimVideo(
     inputPath: string,
     outputPath: string,
+    cutSeconds = 20,
     operationName = '截取处理'
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const command = ffmpeg(inputPath)
         .outputOptions([
-          '-t 20',
+          `-t ${cutSeconds}`,
           '-c:v libx264', // 视频编码器
           '-preset fast', // 编码速度
           '-crf 23', // 质量参数
@@ -414,16 +205,6 @@ export class FFmpegUtil extends EventEmitter {
         .input(listPath)
         .inputOptions(['-f concat', '-safe 0'])
         .outputOptions(['-c copy']) // 使用copy模式，因为已经统一编码
-        // .outputOptions([
-        //   '-c:v libx264', // 视频编码器
-        //   '-preset fast', // 编码速度
-        //   '-crf 23', // 质量参数
-        //   '-c:a aac', // 音频编码器
-        //   '-b:a 128k', // 音频比特率
-        //   '-vf scale=720:1280', // 统一分辨率
-        //   '-r 30', // 统一帧率
-        //   '-movflags +faststart', // 优化网络播放
-        // ])
         .output(outputPath);
 
       this.runCommand(command, operationName)
@@ -454,11 +235,6 @@ export class FFmpegUtil extends EventEmitter {
 
   /**
    * 拆解视频文件 - 将长视频拆分为多个短视频
-   * @param inputPath 输入视频路径
-   * @param outputDir 输出目录
-   * @param segmentDuration 每个片段的时长（秒），默认为20秒
-   * @param operationName 操作名称
-   * @returns Promise<string[]> 返回拆分后的视频文件路径数组
    */
   public splitVideo(
     inputPath: string,
@@ -482,13 +258,7 @@ export class FFmpegUtil extends EventEmitter {
         // 4. 准备输出文件路径数组
         const outputFiles: string[] = [];
 
-        // 5. 创建临时目录
-        const tempDir = path.join(outputDir, 'temp');
-        if (!fs.existsSync(tempDir)) {
-          fs.mkdirSync(tempDir, { recursive: true });
-        }
-
-        // 6. 循环处理每一段
+        // 5. 循环处理每一段
         for (let i = 0; i < segmentCount; i++) {
           const startTime = i * segmentDuration;
           // 最后一段使用剩余时长
@@ -519,15 +289,6 @@ export class FFmpegUtil extends EventEmitter {
           });
         }
 
-        // 7. 清理临时目录
-        try {
-          if (fs.existsSync(tempDir)) {
-            fs.rmSync(tempDir, { recursive: true, force: true });
-          }
-        } catch (e) {
-          console.warn('清理临时目录失败:', e);
-        }
-
         resolve(outputFiles);
       } catch (error) {
         reject(error);
@@ -536,11 +297,7 @@ export class FFmpegUtil extends EventEmitter {
   }
 
   /**
-   * 根据片段信息拆解视频文件 - 将长视频按照指定的片段信息拆分为多个短视频
-   * @param inputPath 输入视频路径
-   * @param segments 片段信息数组，包含每个片段的时长和输出路径
-   * @param operationName 操作名称
-   * @returns Promise<string[]> 返回拆分后的视频文件路径数组
+   * 根据片段信息拆解视频文件
    */
   public splitVideoBySegments(
     inputPath: string,
@@ -636,13 +393,8 @@ export class FFmpegUtil extends EventEmitter {
 
   /**
    * 截取视频片段
-   * @param inputPath 输入视频路径
-   * @param outputPath 输出视频路径
-   * @param startTime 开始时间（秒）
-   * @param duration 时长（秒）
-   * @param operationName 操作名称
    */
-  private trimSegment(
+  public trimSegment(
     inputPath: string,
     outputPath: string,
     startTime: number,
@@ -737,6 +489,176 @@ export class FFmpegUtil extends EventEmitter {
           '-acodec mp3', // 使用MP3编码器
           '-b:a 192k', // 设置音频比特率
         ])
+        .output(outputPath);
+
+      this.runCommand(command, operationName)
+        .then(() => resolve())
+        .catch(reject);
+    });
+  }
+
+  /**
+   * 添加字幕
+   */
+  public addSubtitles(
+    inputPath: string,
+    subtitlePath: string,
+    outputPath: string,
+    subtitleStyle: string,
+    operationName = '添加字幕'
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // 处理路径中的特殊字符，确保在命令中正确使用
+      const srtFilterPath = subtitlePath
+        .replace(/\\/g, '/')
+        .replace(/:/g, '\\:');
+      const command = ffmpeg(inputPath)
+        .outputOptions([
+          `-vf subtitles='${srtFilterPath}':force_style='${subtitleStyle}'`,
+          '-c:v libx264',
+          '-preset fast',
+          '-crf 23',
+          '-c:a copy',
+        ])
+        .output(outputPath);
+
+      this.runCommand(command, operationName)
+        .then(() => resolve())
+        .catch(reject);
+    });
+  }
+
+  /**
+   * 添加图片水印
+   */
+  public addWatermark(
+    inputPath: string,
+    watermarkPath: string,
+    outputPath: string,
+    position: string = 'W-w-10:H-h-10',
+    operationName = '添加水印'
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const command = ffmpeg(inputPath)
+        .input(watermarkPath)
+        .outputOptions([
+          `-filter_complex overlay=${position}`,
+          '-c:v libx264',
+          '-preset fast',
+          '-crf 23',
+          '-c:a copy',
+        ])
+        .output(outputPath);
+
+      this.runCommand(command, operationName)
+        .then(() => resolve())
+        .catch(reject);
+    });
+  }
+
+  /**
+   * 混合背景音乐
+   */
+  public mixBackgroundMusic(
+    inputPath: string,
+    bgmPath: string,
+    outputPath: string,
+    bgmVolume: number = 0.15,
+    operationName = '混合背景音乐'
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const command = ffmpeg(inputPath)
+        .input(bgmPath)
+        .inputOptions(['-stream_loop', '-1']) // 循环背景音乐
+        .outputOptions([
+          `-filter_complex [0:a]volume=1.0[a0];[1:a]volume=${bgmVolume}[a1];[a0][a1]amix=inputs=2:duration=first[a]`,
+          '-map 0:v',
+          '-map [a]',
+          '-c:v copy',
+          '-shortest',
+        ])
+        .output(outputPath);
+
+      this.runCommand(command, operationName)
+        .then(() => resolve())
+        .catch(reject);
+    });
+  }
+
+  /**
+   * 合并多个视频片段（使用concat方式）
+   */
+  public concatVideoSegments(
+    inputPaths: string[],
+    outputPath: string,
+    operationName = '合并视频片段'
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // 创建临时目录
+      const tempDir = path.join(process.cwd(), 'temp');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+
+      // 创建 concat 列表文件
+      const listPath = path.join(tempDir, `concat_list_${Date.now()}.txt`);
+      const listContent = inputPaths
+        .map(file => `file '${path.resolve(file)}'`)
+        .join('\n');
+
+      try {
+        fs.writeFileSync(listPath, listContent);
+      } catch (error) {
+        reject(new Error(`创建列表文件失败: ${(error as Error).message}`));
+        return;
+      }
+
+      // 执行合并命令
+      const command = ffmpeg()
+        .input(listPath)
+        .inputOptions(['-f concat', '-safe 0'])
+        .outputOptions(['-c copy']) // 使用copy模式，因为已经统一编码
+        .output(outputPath);
+
+      this.runCommand(command, operationName)
+        .then(() => {
+          // 清理临时文件
+          try {
+            if (fs.existsSync(listPath)) {
+              fs.unlinkSync(listPath);
+            }
+          } catch (e) {
+            console.warn('清理临时文件失败:', e);
+          }
+          resolve();
+        })
+        .catch(error => {
+          // 清理临时文件
+          try {
+            if (fs.existsSync(listPath)) {
+              fs.unlinkSync(listPath);
+            }
+          } catch (e) {
+            console.warn('清理临时文件失败:', e);
+          }
+          reject(error);
+        });
+    });
+  }
+
+  /**
+   * 为视频添加音频（替换或添加音频轨道）
+   */
+  public addAudioToVideo(
+    videoPath: string,
+    audioPath: string,
+    outputPath: string,
+    operationName = '添加音频到视频'
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const command = ffmpeg(videoPath)
+        .input(audioPath)
+        .outputOptions(['-c:v copy', '-c:a aac', '-shortest'])
         .output(outputPath);
 
       this.runCommand(command, operationName)

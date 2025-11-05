@@ -1,6 +1,8 @@
 <template>
   <div class="h-full flex flex-row justify-between">
-    <div class="w-full h-full bg-white p-15"></div>
+    <div class="w-full h-full bg-white p-15">
+      <Task />
+    </div>
     <div class="min-w-3/12 max-w-3/12 bg-gray-100">
       <LogPanel :logs="logData" />
     </div>
@@ -10,6 +12,7 @@
 <script lang="ts" setup>
 import { onMounted, ref, onUnmounted } from 'vue';
 import LogPanel from './components/log-panel.vue';
+import Task from './components/task.vue';
 
 const { ipcRendererChannel } = window;
 
@@ -17,7 +20,6 @@ const logData = ref<any[]>([]);
 
 onMounted(() => {
   ipcRendererChannel.LogUpdate.on((_, arg) => {
-    console.log(_, arg);
     const now = new Date();
     const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
       2,

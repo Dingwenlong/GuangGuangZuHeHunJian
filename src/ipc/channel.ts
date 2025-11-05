@@ -63,6 +63,12 @@ export class IpcChannelMainCustomClass {
   GetAuthInfo!: IpcMainEventListener<void, any>;
   StartMonitoringDirectory!: IpcMainEventListener<string>;
   StopMonitoringDirectory!: IpcMainEventListener<string>;
+  StartProcessing!: IpcMainEventListener<
+    { productDir: string; count: number },
+    void
+  >;
+  StopProcessing!: IpcMainEventListener;
+  GetDefaultTaskDirectory!: IpcMainEventListener<void, string>;
 }
 
 /**
@@ -138,6 +144,7 @@ export class IpcChannelMainClass extends IpcChannelMainCustomClass {
 export class IpcChannelRendererCustomClass {
   MonitoringDirectoryCallback!: IpcRendererEventListener<any>;
   LogUpdate!: IpcRendererEventListener<any>;
+  ProcessingState!: IpcRendererEventListener<{ isProcessing: boolean }>;
 }
 /**
  * 渲染进程的IPC通道事件
