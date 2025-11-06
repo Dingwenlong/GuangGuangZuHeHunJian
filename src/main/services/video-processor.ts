@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
-import { FFmpegUtil, FFmpegProgressEvent } from '../lib/ffmpeg';
+import { FFmpegUtil } from '../lib/ffmpeg';
 import { writeLog, type LogEvent } from '@main/utils/log';
 
 export class VideoProcessor extends EventEmitter {

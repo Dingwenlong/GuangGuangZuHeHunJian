@@ -70,7 +70,6 @@ export const ipcCustomMainHandlers = (mainInit: MainInit): IpcHandler[] => {
     });
   };
   let isProcessing = false;
-  let stopRequested = false;
 
   videoProcessor.on('log', (logEvent: { type: string; message: any }) => {
     log(`[${logEvent.type.toUpperCase()}] ${logEvent.message}`, logEvent.type);
@@ -93,7 +92,6 @@ export const ipcCustomMainHandlers = (mainInit: MainInit): IpcHandler[] => {
         }
 
         isProcessing = true;
-        stopRequested = false;
         event.sender.send('ProcessingState', { isProcessing });
 
         log('任务已开始执行...');
@@ -108,7 +106,6 @@ export const ipcCustomMainHandlers = (mainInit: MainInit): IpcHandler[] => {
           );
         } finally {
           isProcessing = false;
-          stopRequested = false;
           log('✅ 全部任务已结束！');
           event.sender.send('ProcessingState', { isProcessing });
         }
@@ -118,8 +115,7 @@ export const ipcCustomMainHandlers = (mainInit: MainInit): IpcHandler[] => {
       channel: 'StopProcessing',
       handler: async () => {
         if (isProcessing) {
-          stopRequested = true;
-          log('🛑 已请求停止，将在当前视频处理完成后安全退出...');
+          videoProcessor.requestStop();
         }
       },
     },
