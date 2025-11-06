@@ -99,7 +99,7 @@ const columns: TableColumnType[] = [
 ];
 const task = reactive({
   taskDirectory: '',
-  generateCount: 100,
+  generateCount: 10,
   running: false,
   stopping: false,
 });
@@ -145,15 +145,15 @@ watch(task, async (newValue, oldValue) => {
 });
 
 onMounted(async () => {
-  task.taskDirectory =
-    await ipcRendererChannel.GetDefaultTaskDirectory.invoke();
+  // task.taskDirectory =
+  //   await ipcRendererChannel.GetDefaultTaskDirectory.invoke();
   ipcRendererChannel.MonitoringDirectoryCallback.on(
     (_, arg: { root: string; structure: any[] }) => {
       const { root, structure } = arg;
       if (root === task.taskDirectory) {
         tableData.value = structure
           .sort((a, b) => a.name.localeCompare(b.name))
-          .filter(dir => dir.children)
+          .filter(dir => dir.children && dir.name.indexOf('temp_') === -1)
           .map(dir => {
             return {
               first: dir.name,

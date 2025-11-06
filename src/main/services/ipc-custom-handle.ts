@@ -4,7 +4,7 @@ import type MainInit from './window-manager';
 import authManager from './auth-manager';
 import { webContentSend } from './web-content-send';
 import DirectoryMonitor from './directory-monitor';
-import { generateVideos } from './video-processor';
+import { VideoProcessor } from './video-processor';
 
 /**
  * 自定义全局
@@ -62,14 +62,19 @@ export const ipcCustomLoginHandlers = (mainInit: MainInit): IpcHandler[] => {
 export const ipcCustomMainHandlers = (mainInit: MainInit): IpcHandler[] => {
   const mainWindow = mainInit.mainWindow!;
   const dirMonitors: DirectoryMonitor[] = [];
-  let isProcessing = false;
-  let stopRequested = false;
+  const videoProcessor = new VideoProcessor();
   const log = (message: string, type: string = 'info') => {
     webContentSend.LogUpdate(mainWindow.webContents, {
       message,
       type,
     });
   };
+  let isProcessing = false;
+  let stopRequested = false;
+
+  videoProcessor.on('log', (logEvent: { type: string; message: any }) => {
+    log(`[${logEvent.type.toUpperCase()}] ${logEvent.message}`, logEvent.type);
+  });
 
   return [
     {
@@ -93,7 +98,7 @@ export const ipcCustomMainHandlers = (mainInit: MainInit): IpcHandler[] => {
 
         log('任务已开始执行...');
         try {
-          await generateVideos(productDir, count, log, () => stopRequested);
+          await videoProcessor.generateVideos(productDir, count);
           log('✅ 全部任务执行完成！');
         } catch (error) {
           log(
