@@ -5,36 +5,94 @@
     <div class="mb-15 flex flex-row items-center flex-wrap gap-10">
       <div class="w-full flex justify-between flex-row items-center gap-10">
         <Input
-          class="w-8/12!"
           readonly
           v-model:value="task.taskDirectory"
           placeholder="点击选择商品目录文件夹"
           @click="selectDirectoryHandler" />
-        <div
-          class="w-4/12 h-32 text-[12px] text-gray-400 content-center text-right">
-          生成条数
-          <Input
-            class="w-80! text-center"
-            :readonly="task.running"
-            v-model:value="task.generateCount" />
-        </div>
       </div>
-      <div class="w-full flex flex-row justify-end gap-10">
-        <Button
-          type="primary"
-          v-show="task.running"
-          :loading="task.stopping"
-          :disabled="task.stopping"
-          @click="stopHandler"
-          >结束</Button
-        >
-        <Button
-          type="primary"
-          :loading="task.running"
-          :disabled="!task.taskDirectory || task.running"
-          @click="startHandler"
-          >{{ task.running ? '运行中' : '开始' }}</Button
-        >
+      <div class="w-full flex flex-row justify-between gap-10">
+        <div class="grid grid-cols-4 gap-10">
+          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+            生成条数
+            <Input
+              class="w-80! text-center"
+              :readonly="task.running"
+              v-model:value="task.generateCount" />
+          </div>
+          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+            PlayResX
+            <Input
+              class="w-80! text-center"
+              :readonly="task.running"
+              v-model:value="task.PlayResX" />
+          </div>
+          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+            PlayResY
+            <Input
+              class="w-80! text-center"
+              :readonly="task.running"
+              v-model:value="task.PlayResY" />
+          </div>
+          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+            Fontsize
+            <Input
+              class="w-80! text-center"
+              :readonly="task.running"
+              v-model:value="task.Fontsize" />
+          </div>
+          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+            MarginV
+            <Input
+              class="w-80! text-center"
+              :readonly="task.running"
+              v-model:value="task.MarginV" />
+          </div>
+          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+            Outline
+            <Input
+              class="w-80! text-center"
+              :readonly="task.running"
+              v-model:value="task.Outline" />
+          </div>
+          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+            OutlineColour
+            <Input
+              class="w-80! text-center"
+              :style="
+                'background-color:' +
+                task.OutlineColour.replace('&H', '#').slice(0, 7)
+              "
+              :readonly="task.running"
+              v-model:value="task.OutlineColour" />
+          </div>
+          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+            PrimaryColour
+            <Input
+              class="w-80! text-center"
+              :style="
+                'background-color:' +
+                task.PrimaryColour.replace('&H', '#').slice(0, 7)
+              "
+              v-model:value="task.PrimaryColour" />
+          </div>
+        </div>
+        <div class="flex gap-10">
+          <Button
+            type="primary"
+            v-show="task.running"
+            :loading="task.stopping"
+            :disabled="task.stopping"
+            @click="stopHandler"
+            >结束</Button
+          >
+          <Button
+            type="primary"
+            :loading="task.running"
+            :disabled="!task.taskDirectory || task.running"
+            @click="startHandler"
+            >{{ task.running ? '运行中' : '开始' }}</Button
+          >
+        </div>
       </div>
     </div>
     <div class="mb-15 h-full overflow-auto">
@@ -89,6 +147,7 @@ const columns: TableColumnType[] = [
     dataIndex: 'second',
     key: 'second',
     width: '50%',
+    align: 'center',
   },
   {
     title: '操作',
@@ -102,6 +161,13 @@ const task = reactive({
   generateCount: 10,
   running: false,
   stopping: false,
+  PlayResX: 1080,
+  PlayResY: 1920,
+  Fontsize: 55,
+  PrimaryColour: '&HFFFFFF',
+  Outline: 3,
+  OutlineColour: '&H4100FF',
+  MarginV: 300,
 });
 const tableData = ref<any[]>([]);
 
@@ -109,6 +175,13 @@ async function startHandler() {
   await ipcRendererChannel.StartProcessing.invoke({
     productDir: task.taskDirectory,
     count: task.generateCount,
+    PlayResX: task.PlayResX,
+    PlayResY: task.PlayResY,
+    Fontsize: task.Fontsize,
+    PrimaryColour: task.PrimaryColour,
+    Outline: task.Outline,
+    OutlineColour: task.OutlineColour,
+    MarginV: task.MarginV,
   });
 }
 

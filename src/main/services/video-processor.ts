@@ -1,4 +1,4 @@
-import { promises as fs } from 'fs';
+import fs from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 import { FFmpegUtil } from '../lib/ffmpeg';
@@ -7,11 +7,34 @@ import { writeLog, type LogEvent } from '@main/utils/log';
 export class VideoProcessor extends EventEmitter {
   private ffmpegUtil: FFmpegUtil;
   private stopRequested: boolean = false;
+  private config = {
+    PlayResX: 1080,
+    PlayResY: 1920,
+    Fontsize: 55,
+    PrimaryColour: '&HFFFFFF',
+    Outline: 3,
+    OutlineColour: '&H4100FF',
+    MarginV: 300,
+  };
+  private fontsDir: string;
 
   constructor() {
     super();
     this.ffmpegUtil = FFmpegUtil.getInstance();
     this.setupFFmpegEventListeners();
+    const devResourcesPath = path.join(process.cwd(), 'resources');
+    const devFontsPath = path.join(devResourcesPath, 'Fonts');
+
+    const prodResourcesPath = process.resourcesPath || '';
+    const prodFontsPath = path.join(prodResourcesPath, 'Fonts');
+
+    if (fs.existsSync(devFontsPath)) {
+      this.fontsDir = devFontsPath;
+    } else if (fs.existsSync(prodFontsPath)) {
+      this.fontsDir = prodFontsPath;
+    } else {
+      this.fontsDir = '';
+    }
   }
 
   /**
@@ -21,6 +44,10 @@ export class VideoProcessor extends EventEmitter {
     this.ffmpegUtil.on('log', (event: LogEvent) => {
       this.writeLog(event.message, event.type);
     });
+  }
+
+  public setConfig(config: Partial<typeof VideoProcessor.prototype.config>) {
+    this.config = { ...this.config, ...config };
   }
 
   /**
@@ -81,7 +108,7 @@ export class VideoProcessor extends EventEmitter {
     const productName = path.basename(productDir);
     const randomSuffix = Math.random().toString(36).substring(2, 8);
     const tempDir = path.join(productDir, `temp_${index}_${randomSuffix}`);
-    await fs.mkdir(tempDir, { recursive: true });
+    await fs.promises.mkdir(tempDir, { recursive: true });
     this.writeLog(`[1/7] 创建临时目录: ${tempDir}`);
 
     const subtitleData: { text: string; duration: number }[] = [];
@@ -89,7 +116,9 @@ export class VideoProcessor extends EventEmitter {
 
     // 2. 场景视频合成
     this.writeLog('[2/7] 开始处理场景视频...');
-    const sceneDirs = (await fs.readdir(productDir, { withFileTypes: true }))
+    const sceneDirs = (
+      await fs.promises.readdir(productDir, { withFileTypes: true })
+    )
       .filter(d => d.isDirectory() && /^[A-Z]$/.test(d.name))
       .map(d => d.name)
       .sort();
@@ -159,11 +188,11 @@ export class VideoProcessor extends EventEmitter {
     // 3. 合并所有场景
     this.writeLog('[3/7] 合并所有场景视频...');
     const concatListPath = path.join(tempDir, 'filelist.txt');
-    const filesToConcat = (await fs.readdir(tempDir))
+    const filesToConcat = (await fs.promises.readdir(tempDir))
       .filter(f => f.startsWith('add_audio_') && f.endsWith('.mp4'))
       .sort();
     if (filesToConcat.length === 0) {
-      await fs.rm(tempDir, { recursive: true, force: true });
+      await fs.promises.rm(tempDir, { recursive: true, force: true });
       throw new Error(
         '没有可以合并的场景视频，请检查 A,B,C... 文件夹内的素材。'
       );
@@ -171,7 +200,7 @@ export class VideoProcessor extends EventEmitter {
     const fileListContent = filesToConcat
       .map(f => `file '${path.resolve(tempDir, f).replace(/\\/g, '/')}'`)
       .join('\n');
-    await fs.writeFile(concatListPath, fileListContent);
+    await fs.promises.writeFile(concatListPath, fileListContent);
     const mergePath = path.join(tempDir, 'merge.mp4');
 
     // 使用ffmpegUtil合并视频片段
@@ -196,18 +225,20 @@ export class VideoProcessor extends EventEmitter {
       currentTime = end; // 加上间隔
     });
     const srtPath = path.join(tempDir, 'subtitles.srt');
-    await fs.writeFile(srtPath, srtContent);
+    await fs.promises.writeFile(srtPath, srtContent);
 
     const subtitleStyle = [
-      'Fontsize=9',
-      'PrimaryColour=&HFFFFFF',
-      'BorderStyle=1',
-      'Outline=1',
-      'OutlineColour=&H000000',
+      `PlayResX=${this.config.PlayResX}`,
+      `PlayResY=${this.config.PlayResY}`,
+      'Fontname=SourceHanSansCN-Bold',
+      `Fontsize=${this.config.Fontsize}`,
+      `PrimaryColour=${this.config.PrimaryColour}`,
+      `Outline=${this.config.Outline}`,
+      `OutlineColour=${this.config.OutlineColour}`,
       'Alignment=2',
       'MarginL=20',
       'MarginR=20',
-      'MarginV=60',
+      `MarginV=${this.config.MarginV}`,
     ].join(',');
     const mergeSubtitlePath = path.join(tempDir, 'merge_subtitle.mp4');
     // 使用ffmpegUtil添加字幕
@@ -215,6 +246,8 @@ export class VideoProcessor extends EventEmitter {
       mergePath,
       srtPath,
       mergeSubtitlePath,
+      this.fontsDir,
+      `${this.config.PlayResX}:${this.config.PlayResY}`,
       subtitleStyle,
       '添加字幕'
     );
@@ -240,10 +273,10 @@ export class VideoProcessor extends EventEmitter {
     // 6. 添加背景音乐并输出成品
     this.writeLog('[6/7] 添加背景音乐并输出成品...');
     const chengpinDir = path.join(productDir, '成品');
-    await fs.mkdir(chengpinDir, { recursive: true });
+    await fs.promises.mkdir(chengpinDir, { recursive: true });
 
     const bgmFile = await this.getRandomFile(productDir, '.mp3');
-    const existingFiles = await fs.readdir(chengpinDir);
+    const existingFiles = await fs.promises.readdir(chengpinDir);
     const maxNum = existingFiles
       .map(f => parseInt(f.split('--')[0]))
       .filter(n => !isNaN(n))
@@ -266,13 +299,13 @@ export class VideoProcessor extends EventEmitter {
       this.writeLog(
         '  - 警告: 未在商品目录找到.mp3背景音乐文件，将不添加背景音乐直接输出。'
       );
-      await fs.copyFile(watermarkPath, finalOutputPath);
+      await fs.promises.copyFile(watermarkPath, finalOutputPath);
     }
     this.writeLog(`  - 成品已输出到: ${finalOutputPath}`);
 
     // 7. 清理临时文件
     this.writeLog('[7/7] 清理临时文件...');
-    await fs.rm(tempDir, { recursive: true, force: true });
+    await fs.promises.rm(tempDir, { recursive: true, force: true });
     this.writeLog(`  - 已删除: ${tempDir}`);
   }
 
@@ -283,7 +316,7 @@ export class VideoProcessor extends EventEmitter {
     dirPath: string,
     ext: string
   ): Promise<string | null> {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
     const filteredFiles = entries
       .filter(
         entry =>

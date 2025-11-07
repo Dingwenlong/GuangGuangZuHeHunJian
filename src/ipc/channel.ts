@@ -64,7 +64,7 @@ export class IpcChannelMainCustomClass {
   StartMonitoringDirectory!: IpcMainEventListener<string>;
   StopMonitoringDirectory!: IpcMainEventListener<string>;
   StartProcessing!: IpcMainEventListener<
-    { productDir: string; count: number },
+    { productDir: string; count: number; [key: string]: any },
     void
   >;
   StopProcessing!: IpcMainEventListener;

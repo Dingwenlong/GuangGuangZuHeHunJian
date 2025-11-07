@@ -37,13 +37,25 @@ export class FFmpegUtil extends EventEmitter {
 
     // 开发环境路径 - 项目根目录下的 resources 文件夹
     const devResourcesPath = path.join(process.cwd(), 'resources');
-    const devFFmpegPath = path.join(devResourcesPath, `ffmpeg${ext}`);
-    const devFFprobePath = path.join(devResourcesPath, `ffprobe${ext}`);
+    const devFFmpegPath = path.join(devResourcesPath, 'ffmpeg', `ffmpeg${ext}`);
+    const devFFprobePath = path.join(
+      devResourcesPath,
+      'ffmpeg',
+      `ffprobe${ext}`
+    );
 
     // 生产环境路径 - Electron 的 resources 目录
     const prodResourcesPath = process.resourcesPath || '';
-    const prodFFmpegPath = path.join(prodResourcesPath, `ffmpeg${ext}`);
-    const prodFFprobePath = path.join(prodResourcesPath, `ffprobe${ext}`);
+    const prodFFmpegPath = path.join(
+      prodResourcesPath,
+      'ffmpeg',
+      `ffmpeg${ext}`
+    );
+    const prodFFprobePath = path.join(
+      prodResourcesPath,
+      'ffmpeg',
+      `ffprobe${ext}`
+    );
 
     // 设置 ffmpeg 路径
     if (fs.existsSync(devFFmpegPath)) {
@@ -721,6 +733,8 @@ export class FFmpegUtil extends EventEmitter {
     inputPath: string,
     subtitlePath: string,
     outputPath: string,
+    fontsDir: string,
+    scale: string,
     subtitleStyle: string,
     operationName = '添加字幕'
   ): Promise<void> {
@@ -734,8 +748,9 @@ export class FFmpegUtil extends EventEmitter {
       const srtFilterPath = subtitlePath
         .replace(/\\/g, '/')
         .replace(/:/g, '\\:');
+      fontsDir = fontsDir.replace(/\\/g, '/').replace(/:/g, '\\:');
 
-      const command = `"${this.ffmpegPath}" -i "${inputPath}" -vf "subtitles='${srtFilterPath}':force_style='${subtitleStyle}'" -c:v libx264 -preset fast -crf 23 -c:a copy "${outputPath}"`;
+      const command = `"${this.ffmpegPath}" -i "${inputPath}" -vf "scale=${scale},setsar=1,subtitles='${srtFilterPath}':fontsdir='${fontsDir}':force_style='${subtitleStyle}'" -c:v libx264 -preset fast -crf 23 -c:a copy "${outputPath}"`;
 
       this.executeFFmpegCommand(command, operationName)
         .then(() => {

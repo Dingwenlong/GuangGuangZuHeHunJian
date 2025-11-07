@@ -84,16 +84,22 @@ export const ipcCustomMainHandlers = (mainInit: MainInit): IpcHandler[] => {
     },
     {
       channel: 'StartProcessing',
-      handler: async (event, arg: { productDir: string; count: number }) => {
-        const { productDir, count } = arg;
+      handler: async (
+        event,
+        arg: { productDir: string; count: number; [k: string]: any }
+      ) => {
+        const { productDir, count, ...rest } = arg;
         if (isProcessing) {
           log('错误：已经在处理中，请等待当前任务完成。', 'warning');
           return;
         }
 
+        if (rest && Object.keys(rest).length > 0) {
+          videoProcessor.setConfig(rest);
+        }
+
         isProcessing = true;
         event.sender.send('ProcessingState', { isProcessing });
-
         log('任务已开始执行...');
         try {
           await videoProcessor.generateVideos(productDir, count);
