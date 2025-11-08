@@ -40,7 +40,7 @@
   "extraResources": [
     {
       "from": "resources",
-      "to": "resources",
+      "to": "extra",
       "filter": ["**/*"]
     }
   ]

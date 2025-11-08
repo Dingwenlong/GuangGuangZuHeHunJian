@@ -11,68 +11,88 @@
           @click="selectDirectoryHandler" />
       </div>
       <div class="w-full flex flex-row justify-between gap-10">
-        <div class="grid grid-cols-4 gap-10">
-          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+        <div class="w-7/10 grid grid-cols-4 gap-10">
+          <div
+            class="inline-flex text-nowrap items-center h-32 gap-6 text-[12px] text-gray-400 content-center text-right">
             生成条数
             <Input
-              class="w-80! text-center"
+              class="text-center"
               :readonly="task.running"
               v-model:value="task.generateCount" />
           </div>
-          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+          <div
+            class="inline-flex text-nowrap items-center h-32 gap-6 text-[12px] text-gray-400 content-center text-right">
             PlayResX
             <Input
-              class="w-80! text-center"
+              class="text-center"
               :readonly="task.running"
               v-model:value="task.PlayResX" />
           </div>
-          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+          <div
+            class="inline-flex text-nowrap items-center h-32 gap-6 text-[12px] text-gray-400 content-center text-right">
             PlayResY
             <Input
-              class="w-80! text-center"
+              class="text-center"
               :readonly="task.running"
               v-model:value="task.PlayResY" />
           </div>
-          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+          <div
+            class="inline-flex text-nowrap items-center h-32 gap-6 text-[12px] text-gray-400 content-center text-right">
             Fontsize
             <Input
-              class="w-80! text-center"
+              class="text-center"
               :readonly="task.running"
               v-model:value="task.Fontsize" />
           </div>
-          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+          <div
+            class="col-span-4 inline-flex text-nowrap items-center h-32 gap-6 text-[12px] text-gray-400 content-center text-right">
+            Fontname
+            <Select
+              class="w-full text-center"
+              :readonly="task.running"
+              v-model:value="task.Fontname">
+              <SelectOption value="思源黑体 CN">思源黑体 CN</SelectOption>
+              <SelectOption value="思源宋体 CN Heavy"
+                >思源宋体 CN Heavy</SelectOption
+              >
+              <SelectOption value="文悦新青年体 (非商用) W8"
+                >文悦新青年体 (非商用) W8</SelectOption
+              >
+              <SelectOption value="阿里巴巴普惠体 3.0 105 Heavy"
+                >阿里巴巴普惠体 3.0 105 Heavy</SelectOption
+              >
+            </Select>
+          </div>
+          <div
+            class="inline-flex text-nowrap items-center h-32 gap-6 text-[12px] text-gray-400 content-center text-right">
             MarginV
             <Input
-              class="w-80! text-center"
+              class="text-center"
               :readonly="task.running"
               v-model:value="task.MarginV" />
           </div>
-          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+          <div
+            class="inline-flex text-nowrap items-center h-32 gap-6 text-[12px] text-gray-400 content-center text-right">
             Outline
             <Input
-              class="w-80! text-center"
+              class="text-center"
               :readonly="task.running"
               v-model:value="task.Outline" />
           </div>
-          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+          <div
+            class="inline-flex text-nowrap items-center h-32 gap-6 text-[12px] text-gray-400 content-center text-right">
             OutlineColour
             <Input
-              class="w-80! text-center"
-              :style="
-                'background-color:' +
-                task.OutlineColour.replace('&H', '#').slice(0, 7)
-              "
+              class="text-center"
               :readonly="task.running"
               v-model:value="task.OutlineColour" />
           </div>
-          <div class="h-32 text-[12px] text-gray-400 content-center text-right">
+          <div
+            class="inline-flex text-nowrap items-center h-32 gap-6 text-[12px] text-gray-400 content-center text-right">
             PrimaryColour
             <Input
-              class="w-80! text-center"
-              :style="
-                'background-color:' +
-                task.PrimaryColour.replace('&H', '#').slice(0, 7)
-              "
+              class="text-center"
+              :readonly="task.running"
               v-model:value="task.PrimaryColour" />
           </div>
         </div>
@@ -131,7 +151,14 @@
 
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted, reactive, watch } from 'vue';
-import { Input, Table, Button, type TableColumnType } from 'ant-design-vue';
+import {
+  Input,
+  Select,
+  SelectOption,
+  Table,
+  Button,
+  type TableColumnType,
+} from 'ant-design-vue';
 
 const { shell, ipcRendererChannel } = window;
 const columns: TableColumnType[] = [
@@ -163,6 +190,7 @@ const task = reactive({
   stopping: false,
   PlayResX: 1080,
   PlayResY: 1920,
+  Fontname: '思源黑体 CN',
   Fontsize: 55,
   PrimaryColour: '&HFFFFFF',
   Outline: 3,
@@ -172,17 +200,11 @@ const task = reactive({
 const tableData = ref<any[]>([]);
 
 async function startHandler() {
-  await ipcRendererChannel.StartProcessing.invoke({
-    productDir: task.taskDirectory,
-    count: task.generateCount,
-    PlayResX: task.PlayResX,
-    PlayResY: task.PlayResY,
-    Fontsize: task.Fontsize,
-    PrimaryColour: task.PrimaryColour,
-    Outline: task.Outline,
-    OutlineColour: task.OutlineColour,
-    MarginV: task.MarginV,
-  });
+  const config = Object.assign(
+    { productDir: task.taskDirectory, count: task.generateCount },
+    { ...task }
+  );
+  await ipcRendererChannel.StartProcessing.invoke(config);
 }
 
 async function stopHandler() {

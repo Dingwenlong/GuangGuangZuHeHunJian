@@ -10,6 +10,7 @@ export class VideoProcessor extends EventEmitter {
   private config = {
     PlayResX: 1080,
     PlayResY: 1920,
+    Fontname: 'SourceHanSansCN-Bold',
     Fontsize: 55,
     PrimaryColour: '&HFFFFFF',
     Outline: 3,
@@ -22,11 +23,11 @@ export class VideoProcessor extends EventEmitter {
     super();
     this.ffmpegUtil = FFmpegUtil.getInstance();
     this.setupFFmpegEventListeners();
-    const devResourcesPath = path.join(process.cwd(), 'resources');
+    const devResourcesPath = path.join(process.cwd(), 'extra');
     const devFontsPath = path.join(devResourcesPath, 'Fonts');
 
     const prodResourcesPath = process.resourcesPath || '';
-    const prodFontsPath = path.join(prodResourcesPath, 'Fonts');
+    const prodFontsPath = path.join(prodResourcesPath, 'extra', 'Fonts');
 
     if (fs.existsSync(devFontsPath)) {
       this.fontsDir = devFontsPath;
@@ -35,6 +36,7 @@ export class VideoProcessor extends EventEmitter {
     } else {
       this.fontsDir = '';
     }
+    this.writeLog(`Fonts directory set to: ${this.fontsDir}`);
   }
 
   /**
@@ -230,7 +232,7 @@ export class VideoProcessor extends EventEmitter {
     const subtitleStyle = [
       `PlayResX=${this.config.PlayResX}`,
       `PlayResY=${this.config.PlayResY}`,
-      'Fontname=SourceHanSansCN-Bold',
+      `Fontname=${this.config.Fontname}`,
       `Fontsize=${this.config.Fontsize}`,
       `PrimaryColour=${this.config.PrimaryColour}`,
       `Outline=${this.config.Outline}`,

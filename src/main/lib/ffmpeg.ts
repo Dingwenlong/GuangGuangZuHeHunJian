@@ -48,11 +48,13 @@ export class FFmpegUtil extends EventEmitter {
     const prodResourcesPath = process.resourcesPath || '';
     const prodFFmpegPath = path.join(
       prodResourcesPath,
+      'extra',
       'ffmpeg',
       `ffmpeg${ext}`
     );
     const prodFFprobePath = path.join(
       prodResourcesPath,
+      'extra',
       'ffmpeg',
       `ffprobe${ext}`
     );
